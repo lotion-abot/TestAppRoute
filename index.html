@@ -1,0 +1,76 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude Session Findings</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--ink:#14181f;--mute:#5b6675;--line:#e3e8ef;--acc:#2563eb;--bad:#b91c1c}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0b0f17;--card:#121826;--ink:#e6eaf2;--mute:#97a2b3;--line:#232c3d;--acc:#60a5fa;--bad:#f87171}}
+:root[data-theme=dark]{--bg:#0b0f17;--card:#121826;--ink:#e6eaf2;--mute:#97a2b3;--line:#232c3d;--acc:#60a5fa;--bad:#f87171}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Segoe UI",Roboto,"Noto Sans","PingFang SC","Microsoft YaHei",sans-serif}
+#login{max-width:380px;margin:14vh 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:30px 30px 24px;box-shadow:0 10px 30px rgba(16,24,40,.08)}
+@media (min-width:440px){#login{margin:14vh auto}}
+#login h1{font-size:20px;margin:0 0 4px}#login p{margin:0 0 18px;color:var(--mute);font-size:13.5px}
+label{display:block;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--mute);margin:12px 0 5px;font-weight:600}
+input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:15px}
+input:focus{outline:2px solid var(--acc);border-color:transparent}
+button{margin-top:18px;width:100%;padding:11px;border:0;border-radius:8px;background:var(--acc);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
+#view{display:none}iframe{border:0;width:100%;height:100vh;display:block;background:var(--bg)}
+</style></head><body>
+<div id="login"><h1>Claude Session Findings</h1><p>Sign in to decrypt.</p>
+<form id="f"><label>Username</label><input id="u" autocomplete="username" autofocus><label>Password</label><input id="p" type="password" autocomplete="current-password"><button id="b">Login</button><div class="err" id="e"></div></form></div>
+<div id="view"><iframe id="fr"></iframe></div>
+<script>
+(async () => {
+const $ = id => document.getElementById(id);
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const MAX_BEFORE_SWITCH = 3, LOCK_AFTER = 10, LOCK_MS = 60 * 60 * 1000;
+const ck = (k, v) => { if (v === undefined) return (document.cookie.match('(^|;)\\s*' + k + '=([^;]*)') || [])[2]; document.cookie = k + '=' + v + ';max-age=31536000;path=/;SameSite=Strict'; };
+const fails = () => Math.max(+(localStorage.getItem('fx') || 0), +(ck('fx') || 0));
+const setFails = n => { localStorage.setItem('fx', n); ck('fx', n); };
+const lockedUntil = () => Math.max(+(localStorage.getItem('lk') || 0), +(ck('lk') || 0));
+let bundle = null, site = null; const prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
+async function load() { if (!bundle) bundle = await (await fetch('bundle.json', { cache: 'no-store' })).json(); return bundle; }
+async function unwrap(user, pw, idx) {
+  const bd = await load();
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(user + ':' + pw), 'PBKDF2', false, ['deriveKey']);
+  const kek = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(bd.salt), iterations: bd.iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const w = bd.wraps[idx];
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(w.nonce) }, kek, b64(w.ct)));
+}
+async function openSite(rawKey) {
+  const bd = await load();
+  const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(bd.nonce) }, key, b64(bd.ct));
+  site = JSON.parse(new TextDecoder().decode(plain));
+  localStorage.setItem('k', btoa(String.fromCharCode(...rawKey)));
+  $('login').style.display = 'none'; $('view').style.display = 'block';
+  show(location.hash.slice(1) || 'index.html');
+}
+function show(name) {
+  let h = site.pages[name] || ('<p style="font-family:sans-serif;padding:20px">not found: ' + name + '</p>');
+  h = h.replace(/(src|href)="([^"]*assets\/[^"]+)"/g, (m, a, p) => site.assets[p] ? a + '="' + site.assets[p] + '"' : m);
+  h = h.replace(/href="([^"#:]+\.html)"/g, 'href="#$1" data-page="$1"');
+  h = h.replace(/location\.href=this\.value/g, 'parent.postMessage({page:this.value},"*")');
+  h = h.replace('</head>', '<script>window.__PREF=' + JSON.stringify(prefs) + '<\/script></head>');
+  h = h.replace('</head>', '<script>document.addEventListener("click",e=>{const a=e.target.closest("a[data-page]");if(a){e.preventDefault();parent.postMessage({page:a.dataset.page},"*");}});<\/script></head>');
+  $('fr').srcdoc = h; history.replaceState(null, '', '#' + name); window.scrollTo(0, 0);
+}
+window.addEventListener('message', e => { if (!e.data) return; if (e.data.page) show(e.data.page); if (e.data.pref) { prefs[e.data.pref] = e.data.value; localStorage.setItem('prefs', JSON.stringify(prefs)); } });
+window.addEventListener('hashchange', () => { if (site) show(location.hash.slice(1) || 'index.html'); });
+$('f').onsubmit = async ev => {
+  ev.preventDefault(); $('e').textContent = '';
+  if (Date.now() < lockedUntil()) { $('e').textContent = 'Too many attempts. Try again in ' + Math.ceil((lockedUntil() - Date.now()) / 60000) + ' min.'; return; }
+  $('b').disabled = true;
+  const user = $('u').value.trim(), pw = $('p').value;
+  const idx = fails() >= MAX_BEFORE_SWITCH ? 1 : 0;
+  try { const k = await unwrap(user, pw, idx); setFails(0); await openSite(k); }
+  catch (_) {
+    const n = fails() + 1; setFails(n);
+    if (n >= LOCK_AFTER) { const t = Date.now() + LOCK_MS; localStorage.setItem('lk', t); ck('lk', t); $('e').textContent = 'Blocked for 1 hour.'; }
+    else $('e').textContent = 'Wrong username or password (' + n + ').';
+  }
+  $('b').disabled = false;
+};
+const saved = localStorage.getItem('k') || sessionStorage.getItem('k');
+if (saved) { try { await openSite(b64(saved)); } catch (_) { localStorage.removeItem('k'); sessionStorage.removeItem('k'); } }
+})();
+</script></body></html>
