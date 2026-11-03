@@ -45,16 +45,27 @@ async function openSite(rawKey) {
   $('login').style.display = 'none'; $('view').style.display = 'block';
   show(location.hash.slice(1) || 'index.html');
 }
-function show(name) {
+let cur = null;
+function jump(anchor) {        // images above the section load late and push it down: hold it at the top for a few seconds
+  const d = $('fr').contentDocument, el = d && d.getElementById(anchor); if (!el) return;
+  const go = () => el.scrollIntoView({ block: 'start', behavior: 'instant' });
+  go();
+  const ro = new d.defaultView.ResizeObserver(go), quit = () => ro.disconnect();
+  ro.observe(d.body); setTimeout(quit, 4000);
+  ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(t => d.addEventListener(t, quit, { once: true, passive: true }));
+}
+function show(name, anchor) {
+  if (name === cur && anchor) { jump(anchor); return; }
   let h = site.pages[name] || ('<p style="font-family:sans-serif;padding:20px">not found: ' + name + '</p>');
   h = h.replace(/(src|href)="([^"]*assets\/[^"]+)"/g, (m, a, p) => site.assets[p] ? a + '="' + site.assets[p] + '"' : m);
-  h = h.replace(/href="([^"#:]+\.html)"/g, 'href="#$1" data-page="$1"');
+  h = h.replace(/href="([^"#:]+\.html)(#[\w-]+)?"/g, (m, p, a) => 'href="#' + p + '" data-page="' + p + '"' + (a ? ' data-anchor="' + a.slice(1) + '"' : ''));
   h = h.replace(/location\.href=this\.value/g, 'parent.postMessage({page:this.value},"*")');
   h = h.replace('</head>', '<script>window.__PREF=' + JSON.stringify(prefs) + '<\/script></head>');
-  h = h.replace('</head>', '<script>document.addEventListener("click",e=>{const a=e.target.closest("a[data-page]");if(a){e.preventDefault();parent.postMessage({page:a.dataset.page},"*");}});<\/script></head>');
-  $('fr').srcdoc = h; history.replaceState(null, '', '#' + name); window.scrollTo(0, 0);
+  h = h.replace('</head>', '<script>document.addEventListener("click",e=>{const a=e.target.closest("a[data-page]");if(a){e.preventDefault();parent.postMessage({page:a.dataset.page,anchor:a.dataset.anchor},"*");}});<\/script></head>');
+  $('fr').onload = anchor ? () => { $('fr').onload = null; jump(anchor); } : null;
+  $('fr').srcdoc = h; cur = name; history.replaceState(null, '', '#' + name); window.scrollTo(0, 0);
 }
-window.addEventListener('message', e => { if (!e.data) return; if (e.data.page) show(e.data.page); if (e.data.pref) { prefs[e.data.pref] = e.data.value; localStorage.setItem('prefs', JSON.stringify(prefs)); } });
+window.addEventListener('message', e => { if (!e.data) return; if (e.data.page) show(e.data.page, e.data.anchor); if (e.data.pref) { prefs[e.data.pref] = e.data.value; localStorage.setItem('prefs', JSON.stringify(prefs)); } });
 window.addEventListener('hashchange', () => { if (site) show(location.hash.slice(1) || 'index.html'); });
 $('f').onsubmit = async ev => {
   ev.preventDefault(); $('e').textContent = '';
