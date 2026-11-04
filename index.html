@@ -1,9 +1,10 @@
 <!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Claude Session Findings</title>
 <style>
-:root{--bg:#f4f6fa;--card:#fff;--ink:#14181f;--mute:#5b6675;--line:#e3e8ef;--acc:#2563eb;--bad:#b91c1c}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0b0f17;--card:#121826;--ink:#e6eaf2;--mute:#97a2b3;--line:#232c3d;--acc:#60a5fa;--bad:#f87171}}
-:root[data-theme=dark]{--bg:#0b0f17;--card:#121826;--ink:#e6eaf2;--mute:#97a2b3;--line:#232c3d;--acc:#60a5fa;--bad:#f87171}
+:root{--bg:#f4f6fa;--card:#fff;--ink:#14181f;--mute:#5b6675;--line:#e3e8ef;--acc:#2563eb;--bad:#b91c1c;--soft:#eef2f7}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0b0f17;--card:#121826;--ink:#e6eaf2;--mute:#97a2b3;--line:#232c3d;--acc:#60a5fa;--bad:#f87171;--soft:#1a2232}}
+:root[data-theme=dark]{--bg:#0b0f17;--card:#121826;--ink:#e6eaf2;--mute:#97a2b3;--line:#232c3d;--acc:#60a5fa;--bad:#f87171;--soft:#1a2232}
+*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--mute) 28%,transparent) transparent}
 html,body{overscroll-behavior:none}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Segoe UI",Roboto,"Noto Sans","PingFang SC","Microsoft YaHei",sans-serif}
 #login{max-width:380px;margin:14vh 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:30px 30px 24px;box-shadow:0 10px 30px rgba(16,24,40,.08)}
 @media (min-width:440px){#login{margin:14vh auto}}
@@ -16,22 +17,69 @@ button:disabled{opacity:.5;cursor:default}.err{color:var(--bad);font-size:13px;m
 #view{display:none}iframe{border:0;width:100%;height:100vh;display:block;background:var(--bg)}
 #wait{display:none;position:fixed;inset:0;align-items:center;justify-content:center;gap:10px;color:var(--mute);font-size:13px}#wait i{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
 body.auto #login{display:none}body.auto #wait{display:flex}body.in{overflow:hidden}
+/* ---- Access keys panel (master login only) */
+#adm{display:none;position:fixed;inset:0;background:rgba(10,14,22,.55);backdrop-filter:blur(3px);z-index:50;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+#adm.on{display:flex}
+.panel{position:relative;width:100%;max-width:660px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px 24px 20px;font-size:14px;animation:pop .18s ease-out}
+@keyframes pop{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.panel h2{margin:0 0 4px;font-size:18px}.panel p{margin:0 0 6px;color:var(--mute);font-size:13px;line-height:1.5}
+.panel .x{position:absolute;right:12px;top:10px;width:30px;height:30px;margin:0;padding:0;border-radius:8px;background:transparent;color:var(--mute);font-size:18px}
+.panel .x:hover{background:var(--soft);color:var(--ink)}
+.scopes{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:4px 0 12px}
+.scopes label{display:flex;gap:9px;align-items:center;font-size:13.5px;text-transform:none;letter-spacing:0;margin:0;color:var(--ink);font-weight:500;padding:9px 11px;border:1px solid var(--line);border-radius:9px;cursor:pointer;background:var(--bg)}
+.scopes label:hover{border-color:var(--acc)}.scopes label.core{opacity:.6;cursor:default}
+.scopes input{width:16px;height:16px;margin:0;accent-color:var(--acc)}
+.panel .row{display:flex;gap:10px;margin-top:4px}.panel .row button{width:auto;margin:0;padding:9px 18px;font-size:14px}
+.panel button.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}.panel button.sec:hover{background:var(--soft)}
+.key{margin-top:14px;padding:12px 14px;border:1px dashed var(--acc);border-radius:10px;background:var(--bg);display:none;font-size:13px;line-height:1.6}
+.key.on{display:block}.key code{font:12.5px ui-monospace,Consolas,monospace;word-break:break-all;background:var(--soft);padding:2px 6px;border-radius:5px}
+.key button{width:auto;margin:8px 0 0;padding:7px 14px;font-size:13px}
+.issued{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+.issued h3{margin:0 0 6px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--mute)}
+.issued table{width:100%;border-collapse:collapse;font-size:12.5px}.issued td,.issued th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.issued th{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}
+.issued td.k{font:11px ui-monospace,Consolas,monospace;word-break:break-all;color:var(--mute)}
+.issued button{width:auto;margin:0;padding:3px 8px;font-size:11.5px;background:transparent;color:var(--acc);border:1px solid var(--line)}
+.issued button.del{color:var(--bad)}
+.hint{font-size:12px;color:var(--mute);margin-top:12px;line-height:1.55}.hint code{font:11.5px ui-monospace,Consolas,monospace;background:var(--soft);padding:1px 5px;border-radius:4px}
 </style></head><body>
 <div id="login"><h1>Claude Session Findings</h1><p>Sign in to decrypt.</p>
-<form id="f"><label>Username</label><input id="u" autocomplete="username" autofocus><label>Password</label><input id="p" type="password" autocomplete="current-password"><button id="b">Login</button><div class="err" id="e"></div></form></div>
+<form id="f"><label>Username</label><input id="u" autocomplete="username" autofocus><label>Password / key</label><input id="p" type="password" autocomplete="current-password"><button id="b">Login</button><div class="err" id="e"></div></form></div>
 <div id="wait"><i></i>Opening…</div><div id="view"><iframe id="fr"></iframe></div>
+<div id="adm"><div class="panel"><button class="x" id="ac" title="Close">×</button><h2>Access keys</h2>
+<p>Make a login for someone else. Pick what they may see, type their username, generate. They sign in on this page with that username and the key, and see only the ticked parts. Nothing is uploaded: the key itself carries the access, so no rebuild or deploy is needed.</p>
+<label>Username</label><input id="au" placeholder="kelven" autocomplete="off" spellcheck="false">
+<label>Can see</label><div class="scopes" id="as"></div>
+<div class="row"><button id="ag">Generate key</button><button class="sec" id="ac2">Close</button></div>
+<div class="key" id="ak"></div>
+<div class="issued" id="ai"></div>
+<div class="hint">Keys you made are listed only in this browser. To cancel a key, rotate the part it unlocks: <code>python build.py --rotate "&lt;name&gt;"</code> then <code>python deploy.py</code>. Every key that includes that part stops working; your own login is unaffected. New sessions added later are not in old keys: make a new key.</div>
+</div></div>
 <script>
 (async () => {
 const $ = id => document.getElementById(id);
-if (localStorage.getItem('k') || sessionStorage.getItem('k')) document.body.classList.add('auto');
+const AUTH = 'auth';
+const savedAuth = () => { try { return JSON.parse(localStorage.getItem(AUTH) || 'null'); } catch (_) { return null; } };
+const legacy = localStorage.getItem('k') || sessionStorage.getItem('k');
+if (savedAuth() || legacy) document.body.classList.add('auto');
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const b64e = u => btoa(String.fromCharCode(...u));
+const u64e = u => b64e(u).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const u64 = s => b64(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+const hex = u => [...u].map(x => x.toString(16).padStart(2, '0')).join('');
+const unhex = h => Uint8Array.from(h.match(/../g).map(x => parseInt(x, 16)));
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const MAX_BEFORE_SWITCH = 3, LOCK_AFTER = 10, LOCK_MS = 60 * 60 * 1000;
 const ck = (k, v) => { if (v === undefined) return (document.cookie.match('(^|;)\\s*' + k + '=([^;]*)') || [])[2]; document.cookie = k + '=' + v + ';max-age=31536000;path=/;SameSite=Strict'; };
 const fails = () => Math.max(+(localStorage.getItem('fx') || 0), +(ck('fx') || 0));
 const setFails = n => { localStorage.setItem('fx', n); ck('fx', n); };
 const lockedUntil = () => Math.max(+(localStorage.getItem('lk') || 0), +(ck('lk') || 0));
-let bundle = null, site = null; const prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
+let bundle = null, site = null, master = null, admin = null, who = '';
+const prefs = JSON.parse(localStorage.getItem('prefs') || '{}');
 async function load() { if (!bundle) bundle = await (await fetch('bundle.json', { cache: 'no-cache' })).json(); return bundle; }
+const aes = raw => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+async function dec(raw, obj) { return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(obj.nonce) }, await aes(raw), b64(obj.ct))); }
+const txt = u => new TextDecoder().decode(u);
 async function unwrap(user, pw, idx) {
   const bd = await load();
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(user + ':' + pw), 'PBKDF2', false, ['deriveKey']);
@@ -39,12 +87,43 @@ async function unwrap(user, pw, idx) {
   const w = bd.wraps[idx];
   return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(w.nonce) }, kek, b64(w.ct)));
 }
-async function openSite(rawKey) {
+// ---- master login (lotion): the admin blob holds every scope key + label
+async function openMaster(raw) {
   const bd = await load();
-  const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
-  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(bd.nonce) }, key, b64(bd.ct));
-  site = JSON.parse(new TextDecoder().decode(plain));
-  localStorage.setItem('k', btoa(String.fromCharCode(...rawKey)));
+  admin = JSON.parse(txt(await dec(raw, bd.admin))); master = raw;
+  const keys = {}; admin.scopes.forEach(s => { keys[s.id] = b64(s.key); });
+  await openSite(keys);
+  localStorage.setItem(AUTH, JSON.stringify({ t: 'm', k: b64e(raw) })); localStorage.removeItem('k'); sessionStorage.removeItem('k');
+}
+// ---- access key: [ver=1][n]([scope id 3 bytes][scope key 16 bytes])*n [mac 4 bytes]; mac = HMAC(keys, "fx:"+username)
+async function mac(cat, user) {
+  const k = await crypto.subtle.importKey('raw', cat, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode('fx:' + user.trim().toLowerCase()))).slice(0, 4);
+}
+async function parseToken(user, tok) {
+  let u; try { u = u64(tok.trim()); } catch (_) { return null; }
+  if (u.length < 6 || u[0] !== 1) return null;
+  const n = u[1]; if (u.length !== 2 + n * 19 + 4) return null;
+  const keys = {}, cat = [];
+  for (let i = 0; i < n; i++) { const o = 2 + i * 19; keys[hex(u.slice(o, o + 3))] = u.slice(o + 3, o + 19); cat.push(...u.slice(o + 3, o + 19)); }
+  const m = await mac(new Uint8Array(cat), user), given = u.slice(u.length - 4);
+  return m.every((b, i) => b === given[i]) ? keys : null;
+}
+async function openToken(user, tok) {
+  const keys = await parseToken(user, tok); if (!keys) throw 0;
+  who = user.trim().toLowerCase();
+  await openSite(keys);
+  localStorage.setItem(AUTH, JSON.stringify({ t: 't', u: who, tok: tok.trim() }));
+}
+async function openSite(keys) {
+  const bd = await load(); site = { pages: {}, assets: {} }; const locked = [];
+  for (const id in bd.scopes) {
+    if (!keys[id]) { locked.push(id); continue; }
+    const part = JSON.parse(txt(await dec(keys[id], bd.scopes[id])));
+    Object.assign(site.pages, part.pages); Object.assign(site.assets, part.assets);
+  }
+  if (!site.pages['index.html']) throw 0;
+  site.css = locked.map(id => '[data-scope="' + id + '"]{display:none!important}').join('') + (master ? '' : '#cmtbtn,.stats{display:none!important}');
   $('login').style.display = 'none'; $('view').style.display = 'block'; document.body.classList.remove('auto'); document.body.classList.add('in');
   show(location.hash.slice(1) || 'index.html');
 }
@@ -59,32 +138,73 @@ function jump(anchor) {        // images above the section load late and push it
 }
 function show(name, anchor) {
   if (name === cur && anchor) { jump(anchor); return; }
-  let h = site.pages[name] || ('<p style="font-family:sans-serif;padding:20px">not found: ' + name + '</p>');
+  let h = site.pages[name] || ('<p style="font-family:sans-serif;padding:20px;color:#6b7280">' + (master ? 'not found: ' + esc(name) : 'This page is not included in your access. Ask Lotion for a key that covers it.') + '</p>');
   h = h.replace(/(src|href)="([^"]*assets\/[^"]+)"/g, (m, a, p) => site.assets[p] ? a + '="' + site.assets[p] + '"' : m);
   h = h.replace(/href="([^"#:]+\.html)(#[\w-]+)?"/g, (m, p, a) => 'href="#' + p + '" data-page="' + p + '"' + (a ? ' data-anchor="' + a.slice(1) + '"' : ''));
   h = h.replace(/location\.href=this\.value/g, 'parent.postMessage({page:this.value},"*")');
-  h = h.replace('</head>', '<script>window.__PREF=' + JSON.stringify(prefs) + '<\/script></head>');
-  h = h.replace('</head>', '<script>document.addEventListener("click",e=>{const a=e.target.closest("a[data-page]");if(a){e.preventDefault();parent.postMessage({page:a.dataset.page,anchor:a.dataset.anchor},"*");}});<\/script></head>');
+  h = h.replace('</head>', '<style>' + site.css + '</style><script>window.__PREF=' + JSON.stringify(prefs) + '<\/script></head>');
+  h = h.replace('</head>', '<script>document.addEventListener("click",e=>{const a=e.target.closest("a[data-page]");if(a){e.preventDefault();parent.postMessage({page:a.dataset.page,anchor:a.dataset.anchor},"*");return;}const d=e.target.closest("[data-admin]");if(d){e.preventDefault();parent.postMessage({admin:1},"*");}});<\/script></head>');
+  if (master) h = h.replace('<div class="foot">', '<div class="foot"><a href="#" data-admin style="display:block;margin-bottom:6px;font-weight:600">🔑 Access keys</a>');
+  else if (who) h = h.replace('<div class="foot">', '<div class="foot"><div style="margin-bottom:6px">Signed in as <b>' + esc(who) + '</b> · limited view</div>');
   $('fr').onload = anchor ? () => { $('fr').onload = null; jump(anchor); } : null;
   $('fr').srcdoc = h; cur = name; history.replaceState(null, '', '#' + name); window.scrollTo(0, 0);
 }
-window.addEventListener('message', e => { if (!e.data) return; if (e.data.page) show(e.data.page, e.data.anchor); if (e.data.pref) { prefs[e.data.pref] = e.data.value; localStorage.setItem('prefs', JSON.stringify(prefs)); } });
+window.addEventListener('message', e => { if (!e.data) return; if (e.data.page) show(e.data.page, e.data.anchor); if (e.data.admin) openAdmin(); if (e.data.pref) { prefs[e.data.pref] = e.data.value; localStorage.setItem('prefs', JSON.stringify(prefs)); } });
 window.addEventListener('hashchange', () => { if (site) show(location.hash.slice(1) || 'index.html'); });
+// ---- Access keys panel
+const issued = () => { try { return JSON.parse(localStorage.getItem('issued') || '[]'); } catch (_) { return []; } };
+const loginText = (u, t) => location.origin + location.pathname + '\nUsername: ' + u + '\nKey: ' + t;
+function renderIssued() {
+  const list = issued();
+  $('ai').innerHTML = list.length ? '<h3>Keys made in this browser</h3><table><tr><th>User</th><th>Can see</th><th>Made</th><th></th></tr>' + list.map((x, i) =>
+    '<tr><td><b>' + esc(x.u) + '</b></td><td>' + x.s.map(esc).join('<br>') + '</td><td>' + esc(x.d) + '</td><td style="white-space:nowrap"><button data-cp="' + i + '">Copy</button> <button class="del" data-del="' + i + '">Forget</button></td></tr>').join('') + '</table>' : '';
+  $('ai').querySelectorAll('[data-cp]').forEach(b => { b.onclick = () => { const x = list[+b.dataset.cp]; navigator.clipboard.writeText(loginText(x.u, x.t)); b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 1200); }; });
+  $('ai').querySelectorAll('[data-del]').forEach(b => { b.onclick = () => { list.splice(+b.dataset.del, 1); localStorage.setItem('issued', JSON.stringify(list)); renderIssued(); }; });
+}
+function openAdmin() {
+  if (!admin) return;
+  $('as').innerHTML = admin.scopes.map(s => '<label' + (s.core ? ' class="core"' : '') + '><input type="checkbox" value="' + s.id + '"' + (s.core ? ' checked disabled' : '') + '><span>' + esc(s.label) + (s.core ? ' · always' : '') + '</span></label>').join('');
+  $('ak').classList.remove('on'); renderIssued(); $('adm').classList.add('on'); $('au').focus();
+}
+const closeAdmin = () => $('adm').classList.remove('on');
+$('ac').onclick = closeAdmin; $('ac2').onclick = closeAdmin; $('adm').onclick = e => { if (e.target === $('adm')) closeAdmin(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAdmin(); });
+$('ag').onclick = async () => {
+  const user = $('au').value.trim().toLowerCase(); if (!user) { $('au').focus(); return; }
+  const ids = [...$('as').querySelectorAll('input:checked')].map(i => i.value);
+  const bytes = [1, ids.length], cat = [], labels = [];
+  ids.forEach(id => { const sc = admin.scopes.find(x => x.id === id); const k = b64(sc.key); bytes.push(...unhex(id), ...k); cat.push(...k); if (!sc.core) labels.push(sc.label); });
+  const tok = u64e(new Uint8Array([...bytes, ...await mac(new Uint8Array(cat), user)]));
+  $('ak').innerHTML = '<div><b>' + esc(user) + '</b> can see: ' + (labels.map(esc).join(', ') || 'home page only') + '</div><div>Key: <code>' + esc(tok) + '</code></div><button id="cp">Copy login text</button>';
+  $('ak').classList.add('on');
+  $('cp').onclick = () => { navigator.clipboard.writeText(loginText(user, tok)); $('cp').textContent = 'Copied (URL + username + key)'; };
+  const list = issued(); list.unshift({ u: user, s: labels.length ? labels : ['home page only'], t: tok, d: new Date().toISOString().slice(0, 10) });
+  localStorage.setItem('issued', JSON.stringify(list)); renderIssued();
+};
+// ---- login form: master password first, then access key
 $('f').onsubmit = async ev => {
   ev.preventDefault(); $('e').textContent = '';
   if (Date.now() < lockedUntil()) { $('e').textContent = 'Too many attempts. Try again in ' + Math.ceil((lockedUntil() - Date.now()) / 60000) + ' min.'; return; }
   $('b').disabled = true;
   const user = $('u').value.trim(), pw = $('p').value;
   const idx = fails() >= MAX_BEFORE_SWITCH ? 1 : 0;
-  try { const k = await unwrap(user, pw, idx); setFails(0); await openSite(k); }
-  catch (_) {
+  try {
+    let ok = false;
+    try { const k = await unwrap(user, pw, idx); await openMaster(k); ok = true; } catch (_) { master = null; admin = null; }
+    if (!ok) await openToken(user, pw);
+    setFails(0);
+  } catch (_) {
     const n = fails() + 1; setFails(n);
     if (n >= LOCK_AFTER) { const t = Date.now() + LOCK_MS; localStorage.setItem('lk', t); ck('lk', t); $('e').textContent = 'Blocked for 1 hour.'; }
     else $('e').textContent = 'Wrong username or password (' + n + ').';
   }
   $('b').disabled = false;
 };
-const saved = localStorage.getItem('k') || sessionStorage.getItem('k');
-if (saved) { try { await openSite(b64(saved)); } catch (_) { localStorage.removeItem('k'); sessionStorage.removeItem('k'); document.body.classList.remove('auto'); } }
+const a = savedAuth();
+try {
+  if (a && a.t === 'm') await openMaster(b64(a.k));
+  else if (a && a.t === 't') await openToken(a.u, a.tok);
+  else if (legacy) await openMaster(b64(legacy));
+} catch (_) { localStorage.removeItem(AUTH); localStorage.removeItem('k'); sessionStorage.removeItem('k'); master = null; admin = null; document.body.classList.remove('auto'); }
 })();
 </script></body></html>
